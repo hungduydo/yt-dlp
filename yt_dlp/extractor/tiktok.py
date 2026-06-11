@@ -1471,21 +1471,94 @@ class DouyinIE(TikTokBaseIE):
     }]
     _UPLOADER_URL_FORMAT = 'https://www.douyin.com/user/%s'
     _WEBPAGE_HOST = 'https://www.douyin.com/'
+    _SHARE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
+                 'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1')
+
+    def _extract_from_share(self, video_id):
+        webpage = self._download_webpage(
+            f'https://www.iesdouyin.com/share/video/{video_id}/', video_id,
+            'Downloading share webpage', 'Failed to download share webpage',
+            headers={'User-Agent': self._SHARE_UA}, fatal=False)
+        if not webpage:
+            return None
+        router_data = self._search_json(
+            r'window\._ROUTER_DATA\s*=', webpage, 'router data', video_id, fatal=False)
+        if not router_data:
+            return None
+
+        def find_aweme(obj):
+            if isinstance(obj, dict):
+                if {'video', 'desc', 'author'}.issubset(obj):
+                    return obj
+                for v in obj.values():
+                    found = find_aweme(v)
+                    if found:
+                        return found
+            elif isinstance(obj, list):
+                for v in obj:
+                    found = find_aweme(v)
+                    if found:
+                        return found
+            return None
+
+        detail = find_aweme(router_data)
+        if not detail:
+            return None
+
+        # The share endpoint only returns watermarked playwm URLs; flip to /play/ for clean MP4
+        for addr_key in ('play_addr', 'play_addr_h264', 'play_addr_bytevc1', 'download_addr'):
+            addr = traverse_obj(detail, ('video', addr_key))
+            if isinstance(addr, dict) and isinstance(addr.get('url_list'), list):
+                addr['url_list'] = [u.replace('/playwm/', '/play/') for u in addr['url_list']]
+        if detail.get('video', {}).get('bit_rate') is None:
+            detail['video']['bit_rate'] = []
+        return detail
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
+
+        # Allow bypassing the (signature-gated) API entirely with a URL grabbed from the
+        # browser's DevTools. The web `v3-dy-o`/`v3-web` CDN serves the full file reliably,
+        # unlike the `aweme/v1/play` URL the share fallback exposes, so honour this first.
+        # casesense=True: the signed CDN tokens are case-sensitive, lowercasing them yields 403
+        direct_url = self._configuration_arg('direct_url', [None], casesense=True)[0]
+        if direct_url:
+            ext = determine_ext(direct_url, default_ext='mp4')
+            if ext == 'm3u8':
+                formats = self._extract_m3u8_formats(direct_url, video_id, 'mp4')
+            else:
+                formats = [{'url': direct_url, 'ext': ext, 'http_headers': {'Referer': self._WEBPAGE_HOST}}]
+            return {
+                'id': video_id,
+                'title': self._configuration_arg('title', [video_id], casesense=True)[0],
+                'formats': formats,
+            }
 
         detail = traverse_obj(self._download_json(
             'https://www.douyin.com/aweme/v1/web/aweme/detail/', video_id,
             'Downloading web detail JSON', 'Failed to download web detail JSON',
             query={'aweme_id': video_id}, fatal=False), ('aweme_detail', {dict}))
+        from_share = False
         if not detail:
-            # TODO: Run verification challenge code to generate signature cookies
+            self.report_warning('Web API returned no data; falling back to share endpoint')
+            detail = self._extract_from_share(video_id)
+            from_share = True
+        if not detail:
             raise ExtractorError(
-                'Fresh cookies (not necessarily logged in) are needed',
+                'Fresh cookies (not necessarily logged in) are needed. '
+                'As a workaround, grab the play URL from your browser DevTools and pass it via '
+                '--extractor-args "douyin:direct_url=<URL>" (optionally with title=<title>)',
                 expected=not self._get_cookies(self._WEBPAGE_HOST).get('s_v_web_id'))
 
-        return self._parse_aweme_video_app(detail)
+        info = self._parse_aweme_video_app(detail)
+        if from_share:
+            # The share endpoint only yields the `aweme/v1/play` API URL, whose CDN drops
+            # connections without a Referer and caps the bytes served per request. Force a
+            # Referer and small HTTP chunks so the download completes reliably.
+            for f in info['formats']:
+                f.setdefault('http_headers', {})['Referer'] = self._WEBPAGE_HOST
+                f.setdefault('downloader_options', {})['http_chunk_size'] = 1024 * 1024
+        return info
 
 
 class TikTokVMIE(InfoExtractor):

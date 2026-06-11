@@ -4,6 +4,14 @@
 # To create a release, dispatch the https://github.com/yt-dlp/yt-dlp/actions/workflows/release.yml workflow on master
 -->
 
+### 2026.05.26
+
+#### Extractor changes
+- **bilibili**: Randomize Chrome `User-Agent` (versions 118–138) on `playurl` requests to reduce risk of UA-based throttling/blocks
+- **douyin**
+    - Fall back to the `iesdouyin.com` share endpoint when the web detail API returns no data, rewriting `/playwm/` URLs to `/play/` so the returned MP4s are watermark-free
+    - Add `direct_url` (and optional `title`) extractor-args as a manual workaround when both the web API and share endpoint fail; e.g. `--extractor-args "douyin:direct_url=<URL>"`
+
 ### 2026.03.17
 
 #### Extractor changes

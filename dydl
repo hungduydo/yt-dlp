@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# dydl — download a Douyin video with one command, no browser needed.
+# The patched DouyinIE extracts via the web detail API or the iesdouyin
+# share-page fallback, both of which work without cookies or a browser.
+# Only if that fails do we fall back to driving headed Chrome
+# (dydl_geturl.py) to obtain a signed CDN URL.
+#
+# Usage:  ./dydl "https://www.douyin.com/video/7646951022576815387"
+#         ./dydl "https://www.douyin.com/video/XXXX" -o "~/Movies/%(title)s.%(ext)s"
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+URL="${1:?usage: dydl <douyin-url> [extra yt-dlp args...]}"
+shift || true
+
+echo "[dydl] Thử tải trực tiếp (không cần trình duyệt)..." >&2
+if python3 -m yt_dlp -o "%(title)s [%(id)s].%(ext)s" "$@" "$URL"; then
+  exit 0
+fi
+
+echo "[dydl] Tải trực tiếp thất bại — fallback: lấy URL CDN qua trình duyệt..." >&2
+INFO="$(python3 "$HERE/dydl_geturl.py" "$URL")"
+CDN_URL="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["url"])' "$INFO")"
+# Strip ';' (extractor-args separator) and newlines from the title so it is safe to embed.
+TITLE="$(python3 -c 'import json,sys,re; print(re.sub(r"[;\r\n]"," ",json.loads(sys.argv[1]).get("title") or ""))' "$INFO")"
+
+echo "[dydl] Tải bằng yt-dlp: ${TITLE:-$URL}" >&2
+exec python3 -m yt_dlp \
+  --extractor-args "douyin:direct_url=${CDN_URL};title=${TITLE}" \
+  -o "%(title)s [%(id)s].%(ext)s" \
+  "$@" "$URL"

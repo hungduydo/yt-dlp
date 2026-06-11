@@ -834,8 +834,7 @@ Tip: Use `CTRL`+`F` (or `Command`+`F`)  to search by keywords
                                     renegotiation
     --no-check-certificates         Suppress HTTPS certificate validation
     --prefer-insecure               Use an unencrypted connection to retrieve
-                                    information about the video (Currently
-                                    supported only for YouTube)
+                                    information about the video
     --add-headers FIELD:VALUE       Specify a custom HTTP header and its value,
                                     separated by a colon ":". You can use this
                                     option multiple times

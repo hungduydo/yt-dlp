@@ -509,6 +509,7 @@ The only reliable way to check if a site is supported is to try it.
  - **gem.cbc.ca:live**: [*cbcgem*](## "netrc machine")
  - **gem.cbc.ca:olympics**: [*cbcgem*](## "netrc machine")
  - **gem.cbc.ca:playlist**: [*cbcgem*](## "netrc machine")
+ - **generic**: Generic downloader that works on some sites
  - **Genius**
  - **GeniusLyrics**
  - **Germanupa**: germanupa.de
@@ -1351,9 +1352,9 @@ The only reliable way to check if a site is supported is to try it.
  - **SohuV**
  - **SonyLIV**: [*sonyliv*](## "netrc machine")
  - **SonyLIVSeries**
- - **soop**: [*afreecatv*](## "netrc machine") sooplive.co.kr
- - **soop:catchstory**: [*afreecatv*](## "netrc machine") sooplive.co.kr catch story
- - **soop:live**: [*afreecatv*](## "netrc machine") sooplive.co.kr livestreams
+ - **soop**: [*afreecatv*](## "netrc machine") sooplive.com
+ - **soop:catchstory**: [*afreecatv*](## "netrc machine") sooplive.com catch story
+ - **soop:live**: [*afreecatv*](## "netrc machine") sooplive.com livestreams
  - **soop:user**: [*afreecatv*](## "netrc machine")
  - **soundcloud**: [*soundcloud*](## "netrc machine")
  - **soundcloud:playlist**: [*soundcloud*](## "netrc machine")

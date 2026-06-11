@@ -47,7 +47,11 @@ from ..utils import (
 
 
 class BilibiliBaseIE(InfoExtractor):
-    _HEADERS = {'Referer': 'https://www.bilibili.com/'}
+    # A realistic browser User-Agent is required: bilibili's risk control returns
+    # HTTP 412 for the webpage/API requests when cookies are sent with a non-browser UA.
+    _USER_AGENT = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                   '(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36')
+    _HEADERS = {'Referer': 'https://www.bilibili.com/', 'User-Agent': _USER_AGENT}
     _FORMAT_ID_RE = re.compile(r'-(\d+)\.m4s\?')
     _WBI_KEY_CACHE_TIMEOUT = 30  # exact expire timeout is unclear, use 30s for one session
     _wbi_key_cache = {}
@@ -177,7 +181,8 @@ class BilibiliBaseIE(InfoExtractor):
 
         return self._download_json(
             'https://api.bilibili.com/x/player/wbi/playurl', bvid,
-            query=self._sign_wbi(params, bvid), headers=headers, note=note)['data']
+            query=self._sign_wbi(params, bvid),
+            headers=merge_dicts(self._HEADERS, headers or {}), note=note)['data']
 
     def json2srt(self, json_data):
         srt_data = ''
@@ -657,7 +662,7 @@ class BiliBiliIE(BilibiliBaseIE):
 
     def _real_extract(self, url):
         video_id, prefix = self._match_valid_url(url).group('id', 'prefix')
-        headers = self.geo_verification_headers()
+        headers = {**self._HEADERS, **self.geo_verification_headers()}
         webpage, urlh = self._download_webpage_handle(url, video_id, headers=headers)
         if not self._match_valid_url(urlh.url):
             return self.url_result(urlh.url)
